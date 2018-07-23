@@ -1,3 +1,4 @@
+import math
 import cv2
 import numpy as np
 
@@ -9,19 +10,29 @@ class Simulator:
         self.height = height
         self.width = width
 
+        # Center Rectangle in Simulator
+
         self.rect1 = [(self.width / 2) - 10, (self.height / 2) - 10]
         self.rect2 = [(self.width / 2) + 10, (self.height / 2) + 10]
 
+        # Generate Blank Image based off of Passed Size     
         self.image = np.ones((self.height, self.width, 3), np.uint8) * 255
 
+        # Predefine mouse click pt as none for draw logic later
         self.pt = None
 
+        # Generate and draw box
         self.rectangle()
         self.update()
 
+    def calcRectCenter(self):
+        self.rectCenter = [(self.rect1[0] + self.rect2[0]) / 2, (self.rect1[1] + self.rect2[1]) / 2]
+
     def rectangle(self):
-        """ Draw box """
+        """ Draw box with centerpoint """
         cv2.rectangle(self.image, tuple(self.rect1), tuple(self.rect2), (255,0,0), -1)
+        self.calcRectCenter()
+        cv2.circle(self.image, tuple(self.rectCenter), 4, (0, 0, 255), -1)
 
     def drawGoal(self):
         cv2.circle(self.image, tuple(self.pt), 10, (0, 255, 0), -1)
@@ -102,7 +113,16 @@ class Simulator:
             self.drawGoal()
 
         self.keepOnScreen()
+
+    def calcDistance(self, p1, p2):
+        self.distance = math.sqrt(((p1[0]-p2[0])**2)+((p1[1]-p2[1])**2))
+        return self.distance
         
+    def getScore(self):
+        if self.pt != None:
+            ret = self.calcDistance(self.rectCenter, self.pt)
+            return ret
+
     def convertKeyToID(self, key):
         """ Convert key character to ID """
 
@@ -128,12 +148,16 @@ class Simulator:
 
 
     # Function for box movement from code instead of keypresses
-    def runEmulate(self, key): 
+    def emulateKeyPress(self, key): 
         """ Function for box movement from code instead of keypresses""" 
         self.rectangle()
         self.update()
         tempKey = self.convertKeyToID(key)
         self.handleKeyPress(tempKey)
+
+    def emulateMousePress(self, pt):
+        self.pt = pt
+        self.drawGoal()
 
 
 if __name__ == "__main__":

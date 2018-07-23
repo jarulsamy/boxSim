@@ -5,6 +5,10 @@ from sim import *
 
 
 s = Simulator(512, 512)
-s.runWASD()
+
+s.emulateMousePress([20, 20])
+
+print(s.getScore())
+cv2.waitKey(0)
 
 
