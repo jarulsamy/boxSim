@@ -13,9 +13,9 @@ from collections import Counter
 s = Simulator(512, 512)
 
 LR = 1e-3
-goal_steps = 1000
-score_requirement = -300000
-initial_games = 100
+goal_steps = 250
+score_requirement = -5
+initial_games = 1000
 
 
 def some_random_games_first():
@@ -36,57 +36,63 @@ def some_random_games_first():
 # some_random_games_first()
 
 def initial_population():
+    
     training_data = []
     scores = []
     accepted_scores = []
 
-    s.randomGoal()
+    s.randomGoal() # Generate random goal for each game
 
     for i in range(initial_games):
+        view = False
         score = 0
         game_memory = []
         prev_observation = []
 
         for j in range(goal_steps):
             action = s.randomActionSampler()
-            
-            s.emulateKeyPress(action)
+            if action == 0:
+                s.emulateKeyPress("w", view)
+            elif action == 1:
+                s.emulateKeyPress("a", view)
+            elif action == 2:
+                s.emulateKeyPress("s", view)
+            elif action == 3:
+                s.emulateKeyPress("d", view)
+
             observation = s.getObservation()
 
             if len(prev_observation) > 0:
-                # if action == "w":
-                #     game_memory.append([prev_observation, 0])
-                # elif action == "a":
-                #     game_memory.append([prev_observation, 1])
-                # elif action == "s":
-                #     game_memory.append([prev_observation, 2])
-                # elif action == "d":
-                #     game_memory.append([prev_observation, 3])
                 game_memory.append([prev_observation, action])
-            
+
             prev_observation = observation
+
             score += s.getScore()
-    
+
+            if s.getDoneStatus(): 
+                break
+
         if score >= score_requirement:
             accepted_scores.append(score)
             for data in game_memory:
-                if data[1] == 0: # w
-                    output = [0,0]
-                elif data[1] == 1: # a
-                    output = [0, 1]
-                elif data[1] == 2: # s
+                if data[1] == 0:
+                    output = [0, 0]
+                elif data[1] == 1:
                     output = [1, 0]
-                elif data[1] == 3: # d
+                elif data[1] == 2:
+                    output = [0, 1]
+                elif data[1] == 3:
                     output = [1, 1]
-                training_data.append([data, output])
-        
+                
+                training_data.append([data[0], output])
+
         s.reset()
         print("Training Game #{}".format(i))
         print(score)
         scores.append(score)
 
-    # training_data_save = np.array(training_data)
-    # np.save("training.npy", training_data_save)
+    training_data_save = np.array(training_data)
+    np.save("training.npy", training_data_save)
 
     print("Average Accepted Score:", mean(accepted_scores))
     print("Median Score fro Accpeted Scores:", median(accepted_scores))
@@ -144,23 +150,38 @@ for each_game in range(5):
     score = 0
     game_memory = []
     prev_obs = []
-    print(prev_obs, "PREV")
     s.reset(view=True)
     for i in range(goal_steps):
         
         if len(prev_obs) == 0: # prev_obs
             action = s.randomActionSampler()
-            print("rand")
         else:
-            print("else")
-            action = np.argmax(model.predict(prev_obs.reshape(-1,len(prev_obs), 1))[0]) # prev_obs.reshape
+            action = np.argmax(model.predict(prev_obs.reshape(-1,len(prev_obs),1))[0])
         
         choices.append(action)
-        s.emulateKeyPress(action, view=True)
+
+        if action == 0:
+            s.emulateKeyPress("w", view=True)
+            print("w")
+        elif action == 1:
+            s.emulateKeyPress("a", view=True)
+            print("a")
+        elif action == 2:
+            s.emulateKeyPress("s", view=True)
+            print("s")
+        elif action == 3:
+            s.emulateKeyPress("d", view=True)
+            print("d")
+
         new_observation = s.getObservation()
         prev_obs = new_observation
+        game_memory.append([new_observation, action])
         score += s.getScore()
-
+        # cv2.waitKey(0)
+        time.sleep(.1)
+        if s.getDoneStatus():
+            break
+    
     scores.append(score)
 
 print('Average Score:',sum(scores)/len(scores))

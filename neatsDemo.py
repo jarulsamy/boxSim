@@ -88,6 +88,7 @@ def initial_population():
 
         # reset env to play again
         env.reset()
+        print(score, reward)
         # save overall scores
         scores.append(score)
     
@@ -171,4 +172,5 @@ for each_game in range(10):
 print('Average Score:',sum(scores)/len(scores))
 print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
 print(score_requirement)
-
+print(type(new_observation))
+# print(type((observation, "Normal")))

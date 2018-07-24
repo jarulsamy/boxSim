@@ -1,3 +1,4 @@
+import time
 import random
 import math
 import cv2
@@ -26,6 +27,9 @@ class Simulator:
 
         # Predefine mouse click pt as none for draw logic later
         self.pt = None
+
+        # Save start time to use for score function later
+        self.start_time = time.time()
 
         # Generate and draw box
         self.rectangle()
@@ -76,18 +80,25 @@ class Simulator:
         if self.rect1[0] < 0:
             self.rect1[0] += 10
             self.rect2[0] += 10
+            self.punish = True
 
         if self.rect1[1] < 0:
             self.rect1[1] += 10
             self.rect2[1] += 10
+            self.punish = True
 
         if self.rect2[0] > self.width:
             self.rect1[0] -= 10
             self.rect2[0] -= 10
+            self.punish = True
 
         if self.rect2[1] > self.height:
             self.rect1[1] -= 10
             self.rect2[1] -= 10
+            self.punish = True
+
+        else:
+            self.punsh = False
 
         self.removeOldRect()
     
@@ -136,8 +147,21 @@ class Simulator:
         
     def getScore(self):
         if self.pt != None:
-            ret = self.calcDistance(self.rectCenter, self.pt) ** 2
-            return -ret
+            ret = self.calcDistance(self.rectCenter, self.pt)
+            ret = -ret
+            if self.punsh == True:
+                ret -= 5000
+            # self.elapsed_time = time.time() - self.start_time
+            # ret = ret - self.elapsed_time
+            return ret
+
+    def getDoneStatus(self):
+        elapsed_time = time.time() - self.start_time
+        ret = self.getScore()
+        if elapsed_time  > 5 or ret > -5:
+            return True
+        else:
+            return False
 
     def convertKeyToID(self, key):
         """ Convert key character to ID """
@@ -159,12 +183,13 @@ class Simulator:
             return self.key
 
 
-    def runWASD(self):
+    def runWASD(self, view=True):
         while True:
             self.rectangle()
-            self.update()
+            self.update(view)
             self.handleKeyPress(cv2.waitKey(0))
-            print(self.getScore())
+            print(self.getScore(), "SCORE")
+            print(self.getDoneStatus(), "DONE STATUS")
 
 
     # Function for box movement from code instead of keypresses
@@ -183,6 +208,8 @@ class Simulator:
     def reset(self, view=False):
         self.rect1 = self.rect1Original
         self.rect2 = self.rect2Original
+
+        self.start_time = time.time()
 
         if self.pt != None:
             self.removeOldGoal()
@@ -213,7 +240,8 @@ class Simulator:
 
     def getObservation(self):
         temp = self.calcDistance(self.rectCenter, self.pt)
-        return [temp]
+        temp = np.array([temp])
+        return temp
 
     def exit(self):
         exit(0)
