@@ -1,0 +1,2 @@
+model_checkpoint_path: "/mnt/disk/repos/boxSim/jm.model"
+all_model_checkpoint_paths: "/mnt/disk/repos/boxSim/jm.model"

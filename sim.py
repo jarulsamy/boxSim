@@ -1,17 +1,23 @@
+import random
 import math
 import cv2
 import numpy as np
 
 # Create simulator with height and width of window
 class Simulator:
-    """ Simulator built by Joshua Arulsamy """
-
+    """ Simulator built by Joshua Arulsamy 
+    
+    Args: Height and Width of window"""
     def __init__(self, height, width):
         self.height = height
         self.width = width
 
         # Center Rectangle in Simulator
+        # Save a copy to use to reset simulator
 
+        self.rect1Original = [(self.width / 2) - 10, (self.height / 2) - 10]
+        self.rect2Original = [(self.width / 2) + 10, (self.height / 2) + 10]
+        
         self.rect1 = [(self.width / 2) - 10, (self.height / 2) - 10]
         self.rect2 = [(self.width / 2) + 10, (self.height / 2) + 10]
 
@@ -39,12 +45,16 @@ class Simulator:
         self.update()
         # self.removeOldGoal()
 
-    def update(self):
+    def update(self, view=False):
         """ Show image """
         self.rectangle()
-        cv2.imshow("image", self.image)
-        cv2.namedWindow("image")
-        cv2.setMouseCallback("image", self.handleMousePress)
+        if view == True:
+            cv2.imshow("image", self.image)
+            cv2.namedWindow("image")
+            cv2.setMouseCallback("image", self.handleMousePress)
+        else:
+            pass
+        cv2.waitKey(1)
 
     def removeOldRect(self):
         """ Draw whitespace where old box was"""
@@ -54,6 +64,12 @@ class Simulator:
         """ Draw whitespace where old drawGoal point was"""
         cv2.circle(self.image, tuple(self.pt), 10, (255, 255, 255), -1)
 
+    def goalStatus(self):
+        if self.pt != None:
+            return True
+        else:
+            return False
+    
     def keepOnScreen(self):
         """ Keep box from moving off of screen"""
 
@@ -120,45 +136,86 @@ class Simulator:
         
     def getScore(self):
         if self.pt != None:
-            ret = self.calcDistance(self.rectCenter, self.pt)
-            return ret
+            ret = self.calcDistance(self.rectCenter, self.pt) ** 2
+            return -ret
 
     def convertKeyToID(self, key):
         """ Convert key character to ID """
 
         if key == "w":
             self.key = 119
-            
+            return self.key
+
         elif key == "a":
             self.key = 97
-        
-        elif key == "s":
-            self.key == 115
-        
-        elif key == "d":
-            self.key == 100
+            return self.key
 
-        return self.key
+        elif key == "s":
+            self.key = 115
+            return self.key
+
+        elif key == "d":
+            self.key = 100
+            return self.key
+
 
     def runWASD(self):
         while True:
             self.rectangle()
             self.update()
             self.handleKeyPress(cv2.waitKey(0))
+            print(self.getScore())
 
 
     # Function for box movement from code instead of keypresses
-    def emulateKeyPress(self, key): 
+    def emulateKeyPress(self, key, view=False): 
         """ Function for box movement from code instead of keypresses""" 
         self.rectangle()
-        self.update()
+        self.update(view)
         tempKey = self.convertKeyToID(key)
         self.handleKeyPress(tempKey)
 
-    def emulateMousePress(self, pt):
+    def setGoal(self, pt):
+        """ Function for goal point from code instead of mouse down """
         self.pt = pt
         self.drawGoal()
 
+    def reset(self, view=False):
+        self.rect1 = self.rect1Original
+        self.rect2 = self.rect2Original
 
+        if self.pt != None:
+            self.removeOldGoal()
+            self.randomGoal()
+        else:
+            self.randomGoal
+        self.update(view)
+
+    def randomActionSampler(self):
+        i = random.randint(0,3)
+        # if i == 0:
+        #     return "w"
+        # elif i == 1:
+        #     return "a"
+        # elif i == 2:
+        #     return "s"
+        # elif i == 3:
+        #     return "d"
+        return i
+
+    def randomGoal(self):
+        x = random.randint(0, self.width)
+        y = random.randint(0, self.height)  
+        self.pt = [x ,y]
+        self.drawGoal()
+
+        return [x, y]
+
+    def getObservation(self):
+        temp = self.calcDistance(self.rectCenter, self.pt)
+        return [temp]
+
+    def exit(self):
+        exit(0)
 if __name__ == "__main__":
     pass
