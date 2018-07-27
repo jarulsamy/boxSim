@@ -13,9 +13,9 @@ from collections import Counter
 s = Simulator(512, 512)
 
 LR = 1e-3
-goal_steps = 250
+goal_steps = 1000
 score_requirement = -5
-initial_games = 1000
+initial_games = 300
 
 
 def some_random_games_first():
@@ -41,7 +41,8 @@ def initial_population():
     scores = []
     accepted_scores = []
 
-    s.randomGoal() # Generate random goal for each game
+    # s.randomGoal() # Generate random goal for each game
+    s.reset()
 
     for i in range(initial_games):
         view = False
@@ -50,7 +51,9 @@ def initial_population():
         prev_observation = []
 
         for j in range(goal_steps):
+
             action = s.randomActionSampler()
+
             if action == 0:
                 s.emulateKeyPress("w", view)
             elif action == 1:
@@ -67,7 +70,7 @@ def initial_population():
 
             prev_observation = observation
 
-            score += s.getScore()
+            score = s.getScore()
 
             if s.getDoneStatus(): 
                 break
@@ -88,7 +91,6 @@ def initial_population():
 
         s.reset()
         print("Training Game #{}".format(i))
-        print(score)
         scores.append(score)
 
     training_data_save = np.array(training_data)
@@ -100,7 +102,6 @@ def initial_population():
 
     return training_data
 
-# initial_population()
 
 def neural_network_model(input_size):
 
@@ -136,10 +137,9 @@ def train_model(training_data, model=False):
     model.fit({'input': X}, {'targets': y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openai_learning')
 
     return model
-    # print(s.getObservation())
-    # print(X)
+
 training_data = initial_population()
-# print(training_data)
+print(training_data)
 model = train_model(training_data)
 model.save("jm.model")
 
@@ -176,15 +176,15 @@ for each_game in range(5):
         new_observation = s.getObservation()
         prev_obs = new_observation
         game_memory.append([new_observation, action])
-        score += s.getScore()
-        # cv2.waitKey(0)
+        score = s.getScore()
+
         time.sleep(.1)
         if s.getDoneStatus():
             break
     
     scores.append(score)
 
-print('Average Score:',sum(scores)/len(scores))
-print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
-print(score_requirement)
+print('Average Score:', sum(scores)/len(scores))
+# print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
+print("Score Requirement:", score_requirement)
 

@@ -215,7 +215,8 @@ class Simulator:
             self.removeOldGoal()
             self.randomGoal()
         else:
-            self.randomGoal
+            self.randomGoal()
+            
         self.update(view)
 
     def randomActionSampler(self):
@@ -241,6 +242,7 @@ class Simulator:
     def getObservation(self):
         temp = self.calcDistance(self.rectCenter, self.pt)
         temp = np.array([temp])
+        # temp = np.array(temp)
         return temp
 
     def exit(self):
