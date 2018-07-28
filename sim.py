@@ -31,6 +31,9 @@ class Simulator:
         # Save start time to use for score function later
         self.start_time = time.time()
 
+        # Keep track of number of steps to use for done step
+        self.steps = 0
+
         # Generate and draw box
         self.rectangle()
         self.update()
@@ -80,25 +83,21 @@ class Simulator:
         if self.rect1[0] < 0:
             self.rect1[0] += 10
             self.rect2[0] += 10
-            self.punish = True
+            
 
         if self.rect1[1] < 0:
             self.rect1[1] += 10
             self.rect2[1] += 10
-            self.punish = True
+            
 
         if self.rect2[0] > self.width:
             self.rect1[0] -= 10
             self.rect2[0] -= 10
-            self.punish = True
+            
 
         if self.rect2[1] > self.height:
             self.rect1[1] -= 10
             self.rect2[1] -= 10
-            self.punish = True
-
-        else:
-            self.punsh = False
 
         self.removeOldRect()
     
@@ -149,16 +148,12 @@ class Simulator:
         if self.pt != None:
             ret = self.calcDistance(self.rectCenter, self.pt)
             ret = -ret
-            if self.punsh == True:
-                ret -= 5000
-            # self.elapsed_time = time.time() - self.start_time
-            # ret = ret - self.elapsed_time
+
             return ret
 
     def getDoneStatus(self):
-        elapsed_time = time.time() - self.start_time
         ret = self.getScore()
-        if elapsed_time  > 5 or ret > -5:
+        if self.steps > 130 or ret > -20:
             return True
         else:
             return False
@@ -199,6 +194,7 @@ class Simulator:
         self.update(view)
         tempKey = self.convertKeyToID(key)
         self.handleKeyPress(tempKey)
+        self.steps += 1
 
     def setGoal(self, pt):
         """ Function for goal point from code instead of mouse down """

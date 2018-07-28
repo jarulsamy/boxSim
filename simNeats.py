@@ -13,27 +13,9 @@ from collections import Counter
 s = Simulator(512, 512)
 
 LR = 1e-3
-goal_steps = 1000
-score_requirement = -5
-initial_games = 300
-
-
-def some_random_games_first():
-    score = []
-    s.randomGoal()
-    for episode in range(5):
-        for t in range(200):
-            action = s.randomActionSampler()
-            s.emulateKeyPress(action)
-            sScore = s.getScore()
-            # print(action)
-            score.append(sScore)
-            # print(max(score))
-            # cv2.waitKey(0)
-        # if done:
-            # break
-
-# some_random_games_first()
+goal_steps = 120
+score_requirement = -20
+initial_games = 100000
 
 def initial_population():
     
@@ -48,7 +30,6 @@ def initial_population():
         view = False
         score = 0
         game_memory = []
-        prev_observation = []
 
         for j in range(goal_steps):
 
@@ -65,29 +46,28 @@ def initial_population():
 
             observation = s.getObservation()
 
-            if len(prev_observation) > 0:
-                game_memory.append([prev_observation, action])
-
-            prev_observation = observation
+            if len(observation) > 0:
+                game_memory.append([observation, action])
 
             score = s.getScore()
 
+            if score >= score_requirement:
+                accepted_scores.append(score)
+                for data in game_memory:
+                    print("data")
+                    if data[1] == 0:
+                        output = [0, 0]
+                    elif data[1] == 1:
+                        output = [1, 0]
+                    elif data[1] == 2:
+                        output = [0, 1]
+                    elif data[1] == 3:
+                        output = [1, 1]
+                    
+                    training_data.append([data[0], output])
+            
             if s.getDoneStatus(): 
                 break
-
-        if score >= score_requirement:
-            accepted_scores.append(score)
-            for data in game_memory:
-                if data[1] == 0:
-                    output = [0, 0]
-                elif data[1] == 1:
-                    output = [1, 0]
-                elif data[1] == 2:
-                    output = [0, 1]
-                elif data[1] == 3:
-                    output = [1, 1]
-                
-                training_data.append([data[0], output])
 
         s.reset()
         print("Training Game #{}".format(i))
@@ -180,7 +160,8 @@ for each_game in range(5):
 
         time.sleep(.1)
         if s.getDoneStatus():
-            break
+            cv2.waitKey(0)
+            continue
     
     scores.append(score)
 
