@@ -6,4 +6,4 @@ from sim import *
 
 s = Simulator(512, 512)
 
-s.runWASD()
+s.runWASD(verbose=True)

@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+import sys
 import random
 import time
 import cv2
@@ -5,6 +8,7 @@ import operator
 import numpy as np
 from sim import *
 import tflearn
+from termcolor import colored
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.estimator import regression
 from statistics import mean, median
@@ -13,28 +17,53 @@ from collections import Counter
 s = Simulator(512, 512)
 
 LR = 1e-3
-goal_steps = 120
-score_requirement = -20
-initial_games = 100000
+
+# goal_steps = 150 # Irrelevant
+
+score_requirement = 150
+initial_games = 5000
+
+def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=50):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        bar_length  - Optional  : character length of bar (Int)
+    """
+    str_format = "{0:." + str(decimals) + "f}"
+    percents = str_format.format(100 * (iteration / float(total)))
+    filled_length = int(round(bar_length * iteration / float(total)))
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+
+    if iteration == total:
+        sys.stdout.write('\n')
+    sys.stdout.flush()
 
 def initial_population():
-    
+
+    # Inital empty variable decleration    
     training_data = []
     scores = []
     accepted_scores = []
 
-    # s.randomGoal() # Generate random goal for each game
-    s.reset()
-
+    s.reset() # Start fresh sim
+    print_progress(0, initial_games, prefix = 'Progress:', suffix = 'Complete')
     for i in range(initial_games):
-        view = False
+        
+        view = False # Don't render games, much faster
         score = 0
         game_memory = []
+        prev_observation = []
 
-        for j in range(goal_steps):
-
+        # for j in range(goal_steps):
+        while not s.getDoneStatus():
             action = s.randomActionSampler()
-
             if action == 0:
                 s.emulateKeyPress("w", view)
             elif action == 1:
@@ -45,43 +74,49 @@ def initial_population():
                 s.emulateKeyPress("d", view)
 
             observation = s.getObservation()
-
-            if len(observation) > 0:
-                game_memory.append([observation, action])
-
-            score = s.getScore()
-
-            if score >= score_requirement:
-                accepted_scores.append(score)
-                for data in game_memory:
-                    print("data")
-                    if data[1] == 0:
-                        output = [0, 0]
-                    elif data[1] == 1:
-                        output = [1, 0]
-                    elif data[1] == 2:
-                        output = [0, 1]
-                    elif data[1] == 3:
-                        output = [1, 1]
-                    
-                    training_data.append([data[0], output])
             
+            if len(prev_observation) > 0:
+                game_memory.append([prev_observation, action])
+
+            prev_observation = observation
+
+            val = s.getScore()
+            score += int(val)
+
             if s.getDoneStatus(): 
                 break
 
+        if score >= score_requirement:
+            accepted_scores.append(score)
+            for data in game_memory:
+                if data[1] == 0:
+                    output = [0, 0]
+                elif data[1] == 1:
+                    output = [1, 0]
+                elif data[1] == 2:
+                    output = [0, 1]
+                elif data[1] == 3:
+                    output = [1, 1]
+                
+                training_data.append([data[0], output])
+        
         s.reset()
-        print("Training Game #{}".format(i))
+
+        # print("Training Game #{} Score: {} ".format(i, score))
+        sys.stdout.write("{} {}".format(colored(" Training Game #{}".format(i), "green"), colored("Score: {}".format(score), "cyan")))
+        print_progress(i, initial_games, prefix = 'Progress:', suffix = 'Complete')
         scores.append(score)
 
     training_data_save = np.array(training_data)
     np.save("training.npy", training_data_save)
 
-    print("Average Accepted Score:", mean(accepted_scores))
-    print("Median Score fro Accpeted Scores:", median(accepted_scores))
-    print(Counter(accepted_scores))
-
+    # print("Average Accepted Score:", mean(accepted_scores))
+    # print("Median Score fro Accpeted Scores:", median(accepted_scores))
+    print("Counter: ", Counter(accepted_scores))
+    print("Largest: ", max(scores))
     return training_data
 
+# initial_population()
 
 def neural_network_model(input_size):
 
@@ -110,6 +145,7 @@ def neural_network_model(input_size):
 
 def train_model(training_data, model=False):
     X = np.array([i[0] for i in training_data]).reshape(-1,len(training_data[0][0]),1)
+    # X = np.array(i[0] for i in training_/data]).reshape(-1,len(training_data[0][0], 1))
     y = [i[1] for i in training_data]
 
     if not model:
@@ -117,9 +153,9 @@ def train_model(training_data, model=False):
     model.fit({'input': X}, {'targets': y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openai_learning')
 
     return model
-
+    # print(s.getObservation())
+    # print(X)
 training_data = initial_population()
-print(training_data)
 model = train_model(training_data)
 model.save("jm.model")
 
@@ -130,8 +166,9 @@ for each_game in range(5):
     score = 0
     game_memory = []
     prev_obs = []
+    steps = 0
     s.reset(view=True)
-    for i in range(goal_steps):
+    for i in range(1000):
         
         if len(prev_obs) == 0: # prev_obs
             action = s.randomActionSampler()
@@ -139,6 +176,7 @@ for each_game in range(5):
             action = np.argmax(model.predict(prev_obs.reshape(-1,len(prev_obs),1))[0])
         
         choices.append(action)
+        steps += 1
 
         if action == 0:
             s.emulateKeyPress("w", view=True)
@@ -156,16 +194,23 @@ for each_game in range(5):
         new_observation = s.getObservation()
         prev_obs = new_observation
         game_memory.append([new_observation, action])
-        score = s.getScore()
-
-        time.sleep(.1)
+        score += s.getScore()
+        # cv2.waitKey(0)
+        # time.sleep(.1)
+        if steps > 150:
+            s.reset()
+            break
+            
         if s.getDoneStatus():
-            cv2.waitKey(0)
-            continue
+            break
     
     scores.append(score)
 
-print('Average Score:', sum(scores)/len(scores))
+print('Average Score:',sum(scores)/len(scores))
 # print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
-print("Score Requirement:", score_requirement)
-
+print("choices: {}".format(choices))
+print("choice 0 (W): {}".format(choices.count(0)))
+print("choice 1 (A): {}".format(choices.count(1)))
+print("choice 2 (S): {}".format(choices.count(2)))
+print("choice 3 (D): {}".format(choices.count(3)))
+print(score_requirement)
