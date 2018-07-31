@@ -1,4 +1,4 @@
 {
-    "python.pythonPath": "/home/joshua/anaconda2/envs/tfrobot/bin/python",
+    "python.pythonPath": "/home/joshua/anaconda3/envs/tfrobot/bin/python",
     "python.formatting.provider": "yapf"
 }
