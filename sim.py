@@ -159,7 +159,7 @@ class Simulator:
 
     def getDoneStatus(self):
         ret = self.calcDistance(self.rectCenter, self.pt)
-        if ret < 10 or self.steps > 20000:
+        if ret < 15:
             return True
         else:
             return False
@@ -268,6 +268,10 @@ class Simulator:
     # Redundant, remove me later
     def exit(self):
         exit(0)
+
+    def getSteps(self):
+        return self.steps
+
 
 if __name__ == "__main__":
     pass

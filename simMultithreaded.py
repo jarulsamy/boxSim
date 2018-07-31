@@ -1,20 +1,16 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import random
-import time
 import cv2
-import operator
 import numpy as np
+from threading import Thread
+
 from sim import *
-import tflearn
-from termcolor import colored
-from tflearn.layers.core import input_data, dropout, fully_connected
-from tflearn.layers.estimator import regression
+
 from statistics import mean, median
 from collections import Counter
 
-s = Simulator(512, 512)
+from termcolor import colored
 
 LR = 1e-3
 
@@ -45,7 +41,8 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
         sys.stdout.write('\n')
     sys.stdout.flush()
 
-def initial_population():
+
+def initial_population(s):
 
     # Inital empty variable decleration    
     training_data = []
@@ -117,105 +114,65 @@ def initial_population():
     # print("Training_Data: ", training_data)
     return training_data
 
-# initial_population()
 
-def neural_network_model(input_size):
 
-    network = input_data(shape=[None, input_size, 1], name="input")
+class thread1(Thread):
 
-    network = fully_connected(network, 128, activation="relu")
-    network = dropout(network, 0.8)
+    def __init__(self):
+        Thread.__init__(self)
+        self.s = Simulator(512, 512)
 
-    network = fully_connected(network, 256, activation="relu")
-    network = dropout(network, 0.8)
+    def run(self):
+        ret = initial_population(self.s)
+        return ret
 
-    network = fully_connected(network, 512, activation="relu")
-    network = dropout(network, 0.8)
+class thread2(Thread):
 
-    network = fully_connected(network, 256, activation="relu")
-    network = dropout(network, 0.8)
+    def __init__(self):
+        Thread.__init__(self)
+        self.s = Simulator(512, 512)
 
-    network = fully_connected(network, 128, activation="relu")
-    network = dropout(network, 0.8)
+    def run(self):
+        ret = initial_population(self.s)
+        return ret
 
-    network = fully_connected(network, 2, activation="softmax")
-    network = regression(network, optimizer="adam", learning_rate = LR, loss="categorical_crossentropy", name="targets")
-    model = tflearn.DNN(network, tensorboard_dir="j_log")
+class thread3(Thread):
 
-    return model
+    def __init__(self):
+        Thread.__init__(self)
+        self.s = Simulator(512, 512)
 
-def train_model(training_data, model=False):
-    X = np.array([i[0] for i in training_data]).reshape(-1,len(training_data[0][0]),1)
-    # X = np.array(i[0] for i in training_/data]).reshape(-1,len(training_data[0][0], 1))
-    y = [i[1] for i in training_data]
+    def run(self):
+        ret = initial_population(self.s)
+        return ret
 
-    if not model:
-        model = neural_network_model(input_size = len(X[0]))
-    model.fit({'input': X}, {'targets': y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openai_learning')
+class thread4(Thread):
 
-    return model
+    def __init__(self):
+        Thread.__init__(self)
+        self.s = Simulator(512, 512)
 
-training_data = initial_population()
-try:
-    model = train_model(training_data)
-except:
-    training_data = initial_population()
-    model = train_model(training_data)
+    def run(self):
+        ret = initial_population(self.s)
+        return ret
 
-model.save("jm.model")
 
-scores = []
-choices = []
+threadObj1 = thread1()
+threadObj2 = thread2()
+threadObj3 = thread3()
+threadObj4 = thread4()
 
-for each_game in range(5):
-    score = 0
-    game_memory = []
-    prev_obs = []
-    steps = 0
-    s.reset(view=True)
-    for i in range(1000):
-        
-        if len(prev_obs) == 0: # prev_obs
-            action = s.randomActionSampler()
-        else:
-            action = np.argmax(model.predict(prev_obs.reshape(-1,len(prev_obs),1))[0])
-        
-        choices.append(action)
-        steps += 1
+threadObj1.start()
+threadObj2.start()
+threadObj3.start()
+threadObj4.start()
 
-        if action == 0:
-            s.emulateKeyPress("w", view=True)
-            print("w")
-        elif action == 1:
-            s.emulateKeyPress("a", view=True)
-            print("a")
-        elif action == 2:
-            s.emulateKeyPress("s", view=True)
-            print("s")
-        elif action == 3:
-            s.emulateKeyPress("d", view=True)
-            print("d")
+threadObj1.join()
+threadObj2.join()
+threadObj3.join()
+threadObj4.join()
 
-        new_observation = s.getObservation()
-        prev_obs = new_observation
-        game_memory.append([new_observation, action])
-        score += s.getScore()
-        # cv2.waitKey(0)
-        # time.sleep(.1)
-        if steps > 150:
-            s.reset()
-            break
-            
-        if s.getDoneStatus():
-            break
-    
-    scores.append(score)
-
-print('Average Score:',sum(scores)/len(scores))
-# print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
-print("choices: {}".format(choices))
-print("choice 0 (W): {}".format(choices.count(0)))
-print("choice 1 (A): {}".format(choices.count(1)))
-print("choice 2 (S): {}".format(choices.count(2)))
-print("choice 3 (D): {}".format(choices.count(3)))
-print(score_requirement)
+print("Thread 1: ", threadObj1)
+print("Thread 2: ", threadObj2)
+print("Thread 3: ", threadObj3)
+print("Thread 4: ", threadObj4)
