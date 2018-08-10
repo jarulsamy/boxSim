@@ -262,6 +262,7 @@ class Simulator:
     def getObservation(self):
         temp = self.calcDistance(self.rectCenter, self.pt)
         temp = np.array([temp])
+        # temp = [[temp], [self.rectCenter], [self.pt]]
         # temp = np.array(temp)
         return temp
 
