@@ -1,6 +1,6 @@
 # boxSim
 
-Simplified simulator / game used for NEATS training.
+Simplified simulator / game used for reinforced learning.
 
 **Author**
 

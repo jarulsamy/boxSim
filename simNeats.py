@@ -14,12 +14,15 @@ from tflearn.layers.estimator import regression
 from statistics import mean, median
 from collections import Counter
 
+from progress import *
+
 s = Simulator(512, 512)
 
 LR = 1e-3
 
 # goal_steps = 150 # Irrelevant
 
+<<<<<<< HEAD
 score_requirement = 150
 initial_games = 5000
 
@@ -44,6 +47,10 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
     if iteration == total:
         sys.stdout.write('\n')
     sys.stdout.flush()
+=======
+score_requirement = 90
+initial_games = 500
+>>>>>>> 727a3e6442132e61d4b01cacfdec1deb9847fdb9
 
 def initial_population():
 
@@ -58,9 +65,10 @@ def initial_population():
         
         view = False # Don't render games, much faster
         score = 0
+        steps = 0
         game_memory = []
         prev_observation = []
-
+       
         # for j in range(goal_steps):
         while not s.getDoneStatus():
             action = s.randomActionSampler()
@@ -80,11 +88,17 @@ def initial_population():
 
             prev_observation = observation
 
-            val = s.getScore()
-            score += int(val)
+            score += s.getScore()
+            if score <= 0:
+                score = 0
 
             if s.getDoneStatus(): 
                 break
+
+        try:
+            score = score / steps
+        except:
+            pass
 
         if score >= score_requirement:
             accepted_scores.append(score)
@@ -99,6 +113,7 @@ def initial_population():
                     output = [1, 1]
                 
                 training_data.append([data[0], output])
+                # training_data.append([data[0], data[1]])
         
         s.reset()
 
