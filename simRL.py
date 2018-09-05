@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import sys
 import random
 import time
@@ -14,56 +12,30 @@ from tflearn.layers.estimator import regression
 from statistics import mean, median
 from collections import Counter
 
+
 s = Simulator(512, 512)
 
 LR = 1e-3
 
-# goal_steps = 150 # Irrelevant
-
-score_requirement = 150
-initial_games = 5000
-
-def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=50):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        bar_length  - Optional  : character length of bar (Int)
-    """
-    str_format = "{0:." + str(decimals) + "f}"
-    percents = str_format.format(100 * (iteration / float(total)))
-    filled_length = int(round(bar_length * iteration / float(total)))
-    bar = '█' * filled_length + '-' * (bar_length - filled_length)
-
-    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
-
-    if iteration == total:
-        sys.stdout.write('\n')
-    sys.stdout.flush()
+score_requirement = 100
+initial_games = 200
 
 def initial_population():
-
-    # Inital empty variable decleration    
+    
     training_data = []
     scores = []
     accepted_scores = []
 
-    s.reset() # Start fresh sim
-    print_progress(0, initial_games, prefix = 'Progress:', suffix = 'Complete')
+    s.reset()
+
     for i in range(initial_games):
-        
-        view = False # Don't render games, much faster
+
+        view = False
         score = 0
         game_memory = []
-        prev_observation = []
 
-        # for j in range(goal_steps):
         while not s.getDoneStatus():
-            action = s.randomActionSampler()
+             action = s.randomActionSampler()
             if action == 0:
                 s.emulateKeyPress("w", view)
             elif action == 1:
@@ -114,6 +86,7 @@ def initial_population():
     # print("Median Score fro Accpeted Scores:", median(accepted_scores))
     print("Counter: ", Counter(accepted_scores))
     print("Largest: ", max(scores))
+    # print("Training_Data: ", training_data)
     return training_data
 
 # initial_population()
@@ -153,10 +126,14 @@ def train_model(training_data, model=False):
     model.fit({'input': X}, {'targets': y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openai_learning')
 
     return model
-    # print(s.getObservation())
-    # print(X)
+
 training_data = initial_population()
-model = train_model(training_data)
+try:
+    model = train_model(training_data)
+except:
+    training_data = initial_population()
+    model = train_model(training_data)
+
 model.save("jm.model")
 
 scores = []
@@ -214,3 +191,4 @@ print("choice 1 (A): {}".format(choices.count(1)))
 print("choice 2 (S): {}".format(choices.count(2)))
 print("choice 3 (D): {}".format(choices.count(3)))
 print(score_requirement)
+

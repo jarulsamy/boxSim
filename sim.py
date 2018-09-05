@@ -18,6 +18,9 @@ class Simulator:
         self.rect1 = [(self.width / 2) - 10, (self.height / 2) - 10]
         self.rect2 = [(self.width / 2) + 10, (self.height / 2) + 10]
 
+        self.rect1 = [int(x) for x in self.rect1]
+        self.rect2 = [int(x) for x in self.rect2]
+
         # Generate Blank Image based off of Passed Size     
         self.image = np.ones((self.height, self.width, 3), np.uint8) * 255
 
@@ -36,8 +39,12 @@ class Simulator:
 
     def rectangle(self):
         """ Draw box with centerpoint """
+        self.rect1 = [int(x) for x in self.rect1]
+        self.rect2 = [int(x) for x in self.rect2]
+
         cv2.rectangle(self.image, tuple(self.rect1), tuple(self.rect2), (255,0,0), -1)
         self.rectCenter = [(self.rect1[0] + self.rect2[0]) / 2, (self.rect1[1] + self.rect2[1]) / 2]
+        self.rectCenter = [int(x) for x in self.rectCenter]
         cv2.circle(self.image, tuple(self.rectCenter), 4, (0, 0, 255), -1)
 
     def drawGoal(self):
@@ -261,8 +268,8 @@ class Simulator:
     # Get "observation" for RL training
     def getObservation(self):
         temp = self.calcDistance(self.rectCenter, self.pt)
+        # temp = [temp, self.rectCenter, self.pt]
         temp = np.array([temp])
-        # temp = np.array(temp)
         return temp
 
     # Redundant, remove me later
