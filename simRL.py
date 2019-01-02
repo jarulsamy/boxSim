@@ -35,7 +35,7 @@ def initial_population():
         game_memory = []
 
         while not s.getDoneStatus():
-             action = s.randomActionSampler()
+            action = s.randomActionSampler()
             if action == 0:
                 s.emulateKeyPress("w", view)
             elif action == 1:

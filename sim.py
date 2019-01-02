@@ -270,11 +270,6 @@ class Simulator:
         temp = self.calcDistance(self.rectCenter, self.pt)
         # temp = [temp, self.rectCenter, self.pt]
         temp = np.array([temp])
-<<<<<<< HEAD
-=======
-        # temp = [[temp], [self.rectCenter], [self.pt]]
-        # temp = np.array(temp)
->>>>>>> 727a3e6442132e61d4b01cacfdec1deb9847fdb9
         return temp
 
     # Redundant, remove me later
@@ -286,4 +281,6 @@ class Simulator:
 
 
 if __name__ == "__main__":
+    s = Simulator(512, 512)
+    s.runWASD()
     pass

@@ -7,12 +7,13 @@ from tflearn.layers.estimator import regression
 from statistics import median, mean
 from collections import Counter
 
-LR = 1e-3
+LR = 1e-4
 env = gym.make("CartPole-v0")
 env.reset()
-goal_steps = 500
-score_requirement = 50
-initial_games = 10000
+# goal_steps = 500
+score_requirement = 70
+initial_games = 1000000
+from progress import *
 
 def some_random_games_first():
     # Each of these is its own game.
@@ -39,6 +40,7 @@ def some_random_games_first():
 # some_random_games_first()
 
 def initial_population():
+    print_progress(0, initial_games, prefix = 'Progress:', suffix = 'Complete')
     # [OBS, MOVES]
     training_data = []
     # all scores:
@@ -53,7 +55,8 @@ def initial_population():
         # previous observation that we saw
         prev_observation = []
         # for each frame in 200
-        for _ in range(goal_steps):
+        # for _ in range(goal_steps):
+        while True:
             # choose random action (0 or 1)
             action = random.randrange(0,2)
             # do it!
@@ -86,9 +89,11 @@ def initial_population():
                 # saving our training data
                 training_data.append([data[0], output])
 
+        print_progress(_, initial_games, prefix = 'Progress:', suffix = 'Complete')
+
         # reset env to play again
         env.reset()
-        print(score, reward)
+        # print(score, reward)
         # save overall scores
         scores.append(score)
     
@@ -150,7 +155,8 @@ for each_game in range(10):
     game_memory = []
     prev_obs = []
     env.reset()
-    for _ in range(goal_steps):
+    # for _ in range(goal_steps):
+    while True:
         env.render()
 
         if len(prev_obs)==0:
