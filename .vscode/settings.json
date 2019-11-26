@@ -1,5 +1,0 @@
-{
-    "python.pythonPath": "C:\\Miniconda2\\envs\\tf\\python.exe",
-    "python.formatting.provider": "black",
-    "python.linting.enabled": false
-}
