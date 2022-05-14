@@ -1,289 +1,269 @@
+#!/usr/bin/env python3
+
 import random
-import math
+from collections import defaultdict
+
 import cv2
 import numpy as np
 
-# Create simulator with height and width of window
+
+def empty_path():
+    return {"UP": 0, "DOWN": 0, "LEFT": 0, "RIGHT": 0}
+
+
+class Pt:
+    def __init__(self, x, y):
+        """Helper class to represent a point."""
+        self.x = x
+        self.y = y
+
+    def __iter__(self):
+        """Get the point as a tuple."""
+        pt = (self.x, self.y)
+        for i in pt:
+            yield i
+
+    def __eq__(self, rhs):
+        """Check if two points 'point' to the same point."""
+        return self.x == rhs.x and self.y == rhs.y
+
+    def __add__(self, rhs):
+        if isinstance(rhs, Pt):
+            return Pt(self.x + rhs.x, self.y + rhs.y)
+        else:
+            return Pt(self.x + rhs, self.y + rhs)
+
+    def __sub__(self, rhs):
+        if isinstance(rhs, Pt):
+            return Pt(self.x - rhs.x, self.y - rhs.y)
+        else:
+            return Pt(self.x - rhs, self.y - rhs)
+
+    def __repr__(self):
+        return f"Pt(x={self.x}, y={self.y})"
 
 
 class Simulator:
+    PLAYER_DIM = 16
+    MOVE_INC = PLAYER_DIM
+    BACKGROUND_COLOR = (255, 255, 255)
+    PLAYER_COLOR = (255, 0, 0)
+    GOAL_COLOR = (0, 0, 255)
 
-    """ Simulator built by Joshua Arulsamy
+    KEYMAP = {
+        "UP": ("w", "k"),
+        "DOWN": ("s", "j"),
+        "LEFT": ("a", "h"),
+        "RIGHT": ("d", "l"),
+        "QUIT": (chr(27), "q"),
+    }
 
-    Args: Height and Width of window"""
+    _goal = None
 
-    def __init__(self, height, width):
+    def __init__(
+        self,
+        height,
+        width,
+        win_name="Simulator",
+        display=True,
+        action_callback=None,
+        *callback_args,
+    ):
         self.height = height
         self.width = width
+        self.display = display
+        self.win_name = win_name
 
-        # Center Rectangle in Simulator
-        self.rect1 = [(self.width / 2) - 10, (self.height / 2) - 10]
-        self.rect2 = [(self.width / 2) + 10, (self.height / 2) + 10]
+        self.reset()
 
-        self.rect1 = [int(x) for x in self.rect1]
-        self.rect2 = [int(x) for x in self.rect2]
+        if action_callback is None:
+            self._user_game_loop()
+        else:
+            self._action_callback = action_callback
+            self._action_callback_args = callback_args
 
-        # Generate Blank Image based off of Passed Size
-        self.image = np.ones((self.height, self.width, 3), np.uint8) * 255
-
-        # Predefine mouse click pt as none for draw logic later
-        self.pt = None
-
-        # Global distance map
-        self.distanceList = []
-
-        # Number of actions
+    def reset(self):
         self.steps = 0
+        self.routes = defaultdict(empty_path)
 
-        # Generate and draw box
-        self.rectangle()
-        self.update()
+        self._empty_canvas()
 
-    def rectangle(self):
-        """ Draw box with centerpoint """
-        self.rect1 = [int(x) for x in self.rect1]
-        self.rect2 = [int(x) for x in self.rect2]
+        self._player = Pt(self.width // 2, self.height // 2)
+        self._goal_generate()
+        self._current_route_key = (tuple(self._player), tuple(self._goal))
 
-        cv2.rectangle(self.image, tuple(self.rect1),
-                      tuple(self.rect2), (255, 0, 0), -1)
-        self.rectCenter = [(self.rect1[0] + self.rect2[0]) / 2,
-                           (self.rect1[1] + self.rect2[1]) / 2]
-        self.rectCenter = [int(x) for x in self.rectCenter]
-        cv2.circle(self.image, tuple(self.rectCenter), 4, (0, 0, 255), -1)
+        self._update()
 
-    def drawGoal(self):
-        cv2.circle(self.image, tuple(self.pt), 10, (0, 255, 0), -1)
-        self.update()
+    def _empty_canvas(self):
+        self.frame = np.ones((self.height, self.width, 3), np.uint8)
+        self.frame[self.frame.all(axis=2)] = self.BACKGROUND_COLOR
 
-    def update(self, view=False):
-        """ Show image if wanted, otherwise only update rectangle coords """
-        self.rectangle()
-        if view:
-            cv2.imshow("image", self.image)
-            cv2.namedWindow("image")
-            cv2.setMouseCallback("image", self.handleMousePress)
-        else:
-            pass
-        cv2.waitKey(1)
+    def _goal_generate(self):
+        self._goal_erase()
+        self._goal = self._player
 
-    def removeOldRect(self):
-        """ Draw whitespace where old box was """
-        cv2.rectangle(self.image, tuple(self.rect1),
-                      tuple(self.rect2), (255, 255, 255), -1)
+        while self._goal == self._player:
+            max_x = (self.width // self.PLAYER_DIM) - 1
+            max_y = (self.height // self.PLAYER_DIM) - 1
 
-    def removeOldGoal(self):
-        """ Draw whitespace where old drawGoal point was """
-        cv2.circle(self.image, tuple(self.pt), 10, (255, 255, 255), -1)
+            self._goal = Pt(
+                random.randint(1, max_x) * self.PLAYER_DIM,
+                random.randint(1, max_y) * self.PLAYER_DIM,
+            )
+        self._goal_draw()
 
-    def keepOnScreen(self):
-        """ Keep box from moving off of screen """
+    def _goal_draw(self, color=GOAL_COLOR):
+        offset = self.PLAYER_DIM // 2
+        top_left = self._goal - offset
+        bottom_right = self._goal + offset
+        cv2.rectangle(
+            self.frame,
+            tuple(top_left),
+            tuple(bottom_right),
+            color,
+            -1,
+        )
 
-        if self.rect1[0] < 0:
-            self.rect1[0] += 10
-            self.rect2[0] += 10
+    def _goal_erase(self):
+        if self._goal is not None:
+            self._goal_draw(color=self.BACKGROUND_COLOR)
 
-        if self.rect1[1] < 0:
-            self.rect1[1] += 10
-            self.rect2[1] += 10
+    def _player_draw(self, color=PLAYER_COLOR):
+        offset = self.PLAYER_DIM // 2
+        top_left = Pt(self._player.x - offset, self._player.y - offset)
+        bottom_right = Pt(self._player.x + offset, self._player.y + offset)
+        cv2.rectangle(
+            self.frame,
+            tuple(top_left),
+            tuple(bottom_right),
+            color,
+            -1,
+        )
 
-        if self.rect2[0] > self.width:
-            self.rect1[0] -= 10
-            self.rect2[0] -= 10
+    def _player_erase(self):
+        self._player_draw(color=self.BACKGROUND_COLOR)
 
-        if self.rect2[1] > self.height:
-            self.rect1[1] -= 10
-            self.rect2[1] -= 10
+    def _update(self):
+        if self.display:
+            cv2.imshow(self.win_name, self.frame)
+            cv2.namedWindow(self.win_name)
+            self._player_draw()
 
-        self.removeOldRect()
+    @property
+    def player_pos(self):
+        return self._player
 
-    def handleMousePress(self, event, x, y, flags, param):
-        """ Create goal circle based on mouse click """
-        if event == cv2.EVENT_LBUTTONDOWN:
-            self.pt = [x, y]
-            self.drawGoal()
+    @property
+    def goal_pos(self):
+        return self._player
 
-    def handleKeyPress(self, key):
-        """ Take key press and move box """
-        self.key = key
+    @property
+    def best_route(self):
+        best = empty_path()
+        diff = self._goal - self._player
 
-        # W Move box up
-        if self.key == 119:
-            self.removeOldRect()
-            self.rect1[1] -= 10
-            self.rect2[1] -= 10
+        horz = diff.x // self.PLAYER_DIM
+        vert = diff.y // self.PLAYER_DIM
 
-        # A Move box left
-        if self.key == 97:
-            self.removeOldRect()
-            self.rect1[0] -= 10
-            self.rect2[0] -= 10
+        if vert < 0:
+            best["UP"] = abs(vert)
+        elif vert > 0:
+            best["DOWN"] = vert
+        if horz > 0:
+            best["RIGHT"] = horz
+        elif horz < 0:
+            best["LEFT"] = abs(horz)
 
-        # S Move box down
-        if self.key == 115:
-            self.removeOldRect()
-            self.rect1[1] += 10
-            self.rect2[1] += 10
+        return best
 
-        # D Move box right
-        if self.key == 100:
-            self.removeOldRect()
-            self.rect1[0] += 10
-            self.rect2[0] += 10
+    def player_up(self):
+        new_pos = self._player.y - self.MOVE_INC
+        if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
+            self._player.y = new_pos
 
-        # ESC Close the sim
-        if self.key == 27:
-            print("Completions: {}".format(self.completions))
-            exit(0)
+    def player_down(self):
+        new_pos = self._player.y + self.MOVE_INC
+        if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
+            self._player.y = new_pos
 
-        # Spacebar Reset the sim
-        if self.key == 32:
-            self.removeOldRect()
-            self.reset()
+    def player_left(self):
+        new_pos = self._player.x - self.MOVE_INC
+        if new_pos + self.PLAYER_DIM <= self.width and new_pos - self.PLAYER_DIM >= 0:
+            self._player.x = new_pos
 
-        if self.pt is not None:
-            self.drawGoal()
+    def player_right(self):
+        new_pos = self._player.x + self.MOVE_INC
+        if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
+            self._player.x = new_pos
 
-        self.keepOnScreen()
-        self.steps += 1
-
-    def calcDistance(self, p1, p2):
-        """ Calculate distance between two points """
-        self.distance = math.sqrt(
-            ((p1[0] - p2[0]) ** 2) + ((p1[1] - p2[1])**2))
-        return self.distance
-
-    def getScore(self):
-        """ Return positve score if distance to goal decreases,
-        return negative score if distance to goal increases """
-        if self.pt is not None:
-            ret = self.calcDistance(self.rectCenter, self.pt)
-            self.distanceList.append(ret)
-            if len(self.distanceList) > 2:
-                if self.distanceList[-1] > self.distanceList[-2]:
-                    return -1
-                elif self.distanceList[-1] < self.distanceList[-2]:
-                    return 1
-                elif self.distanceList[-1] == self.distanceList[-2]:
-                    return 0
-            else:
-                return 0
-
-        return 0
-
-    def getDoneStatus(self):
-        ret = self.calcDistance(self.rectCenter, self.pt)
-        if ret < 15:
-            return True
-        else:
+    def _handle_key_press(self, key):
+        self._player_erase()
+        key = chr(key)
+        if key in self.KEYMAP["UP"]:
+            self.player_up()
+            self.routes[self._current_route_key]["UP"] += 1
+        elif key in self.KEYMAP["DOWN"]:
+            self.player_down()
+            self.routes[self._current_route_key]["DOWN"] += 1
+        elif key in self.KEYMAP["LEFT"]:
+            self.player_left()
+            self.routes[self._current_route_key]["LEFT"] += 1
+        elif key in self.KEYMAP["RIGHT"]:
+            self.player_right()
+            self.routes[self._current_route_key]["RIGHT"] += 1
+        elif key in self.KEYMAP["QUIT"]:
             return False
 
-    def convertKeyToID(self, key):
-        """ Convert key character to ID """
+        self._update()
+        return True
 
-        if key == "w":
-            self.key = 119
-            return self.key
+    def _user_game_loop(self):
+        self._update()
+        run = True
+        while run:
+            # print(f"Best path: {self.best_route}")
+            self.reset()
 
-        elif key == "a":
-            self.key = 97
-            return self.key
+            while self._player != self._goal:
+                self._update()
+                if not self._handle_key_press(cv2.waitKey(0)):
+                    run = False
+                    break
 
-        elif key == "s":
-            self.key = 115
-            return self.key
+            print(f"Steps taken: {self.routes[self._current_route_key]}")
+            self._goal_generate()
+            self._update()
 
-        elif key == "d":
-            self.key = 100
-            return self.key
+    def _callback_game_loop(self):
+        self._update()
+        run = True
+        while run:
+            # print(f"Best path: {self.best_route}")
+            self.reset()
 
-    def runWASD(self, view=True, verbose=False):
-        """ Run mode for humans """
-        self.reset()
-        self.completions = 0
-        s = 0
-        while True:
+            while self._player != self._goal:
+                self._update()
+                action = self._action_callback(*self._action_callback_args)
+                if action == "QUIT":
+                    run = False
+                    break
 
-            self.rectangle()
-            self.update(view)
-            self.handleKeyPress(cv2.waitKey(0))
+            print(f"Steps taken: {self.routes[self._current_route_key]}")
+            self._goal_generate()
+            self._update()
 
-            if verbose:
-                s += self.getScore()
-                print(s, "SCORE")
-                # print(self.getDoneStatus(), "DONE STATUS")
 
-            if self.getDoneStatus():
-                self.reset()
-                self.completions += 1
-                s = 0
-    # Function for box movement from code instead of keypresses
+state = 500
 
-    def emulateKeyPress(self, key, view=False):
-        """ Function for box movement from code instead of keypresses"""
-        self.rectangle()
-        self.update(view)
-        tempKey = self.convertKeyToID(key)
-        self.handleKeyPress(tempKey)
 
-    def setGoal(self, pt):
-        """ Function for goal point from code instead of mouse down """
-        self.pt = pt
-        self.drawGoal()
-
-    def reset(self, view=False):
-        """ Reset simulator and pick random goal """
-        self.removeOldRect()
-
-        self.rect1 = [(self.width / 2) - 10, (self.height / 2) - 10]
-        self.rect2 = [(self.width / 2) + 10, (self.height / 2) + 10]
-
-        if self.pt is not None:
-            self.removeOldGoal()
-            self.randomGoal()
-        else:
-            self.randomGoal()
-
-        self.steps = 0
-        self.update(view)
-
-    def randomActionSampler(self):
-        """ Pick a random direction to move """
-        i = random.randint(0, 3)
-        # if i == 0:
-        #     return "w"
-        # elif i == 1:
-        #     return "a"
-        # elif i == 2:
-        #     return "s"
-        # elif i == 3:
-        #     return "d"
-        return i
-
-    def randomGoal(self):
-        """ Generate random goal for box to attempt to reach """
-        x = random.randint(0, self.width)
-        y = random.randint(0, self.height)
-        self.pt = [x, y]
-        self.drawGoal()
-
-        return [x, y]
-
-    # Get "observation" for RL training
-    def getObservation(self):
-        temp = self.calcDistance(self.rectCenter, self.pt)
-        # temp = [temp, self.rectCenter, self.pt]
-        temp = np.array([temp])
-        return temp
-
-    # Redundant, remove me later
-    def exit(self):
-        exit(0)
-
-    def getSteps(self):
-        return self.steps
+def sample_callback():
+    global state
+    if state > 0:
+        state -= 1
+        return "UP"
+    else:
+        return "QUIT"
 
 
 if __name__ == "__main__":
-    s = Simulator(512, 512)
-    s.runWASD()
-    pass
+    sim = Simulator(512, 512, "sim", sample_callback)
