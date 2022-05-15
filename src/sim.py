@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import cv2
 import numpy as np
+import random
 
 
 def empty_path():
@@ -74,6 +75,14 @@ class Simulator:
         self.display = display
         self.win_name = win_name
 
+        self.FUNCMAP = {
+            "UP": self.player_up,
+            "DOWN": self.player_down,
+            "LEFT": self.player_left,
+            "RIGHT": self.player_right,
+        }
+        self._routes = defaultdict(empty_path)
+
         self.reset()
 
         if action_callback is None:
@@ -84,7 +93,6 @@ class Simulator:
 
     def reset(self):
         self.steps = 0
-        self.routes = defaultdict(empty_path)
 
         self._empty_canvas()
 
@@ -145,9 +153,9 @@ class Simulator:
 
     def _update(self):
         if self.display:
+            self._player_draw()
             cv2.imshow(self.win_name, self.frame)
             cv2.namedWindow(self.win_name)
-            self._player_draw()
 
     @property
     def player_pos(self):
@@ -176,22 +184,30 @@ class Simulator:
 
         return best
 
+    @property
+    def routes(self):
+        return dict(self._routes)
+
     def player_up(self):
+        self._routes[self._current_route_key]["UP"] += 1
         new_pos = self._player.y - self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
             self._player.y = new_pos
 
     def player_down(self):
+        self._routes[self._current_route_key]["DOWN"] += 1
         new_pos = self._player.y + self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
             self._player.y = new_pos
 
     def player_left(self):
+        self._routes[self._current_route_key]["LEFT"] += 1
         new_pos = self._player.x - self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self.width and new_pos - self.PLAYER_DIM >= 0:
             self._player.x = new_pos
 
     def player_right(self):
+        self._routes[self._current_route_key]["RIGHT"] += 1
         new_pos = self._player.x + self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
             self._player.x = new_pos
@@ -199,20 +215,16 @@ class Simulator:
     def _handle_key_press(self, key):
         self._player_erase()
         key = chr(key)
-        if key in self.KEYMAP["UP"]:
-            self.player_up()
-            self.routes[self._current_route_key]["UP"] += 1
-        elif key in self.KEYMAP["DOWN"]:
-            self.player_down()
-            self.routes[self._current_route_key]["DOWN"] += 1
-        elif key in self.KEYMAP["LEFT"]:
-            self.player_left()
-            self.routes[self._current_route_key]["LEFT"] += 1
-        elif key in self.KEYMAP["RIGHT"]:
-            self.player_right()
-            self.routes[self._current_route_key]["RIGHT"] += 1
-        elif key in self.KEYMAP["QUIT"]:
+        if key in self.KEYMAP["QUIT"]:
             return False
+        elif key in self.KEYMAP["UP"]:
+            self.FUNCMAP["UP"]()
+        elif key in self.KEYMAP["DOWN"]:
+            self.FUNCMAP["DOWN"]()
+        elif key in self.KEYMAP["LEFT"]:
+            self.FUNCMAP["LEFT"]()
+        elif key in self.KEYMAP["RIGHT"]:
+            self.FUNCMAP["RIGHT"]()
 
         self._update()
         return True
@@ -230,40 +242,51 @@ class Simulator:
                     run = False
                     break
 
-            print(f"Steps taken: {self.routes[self._current_route_key]}")
+            print(f"Steps taken: {self._routes[self._current_route_key]}")
             self._goal_generate()
             self._update()
 
-    def _callback_game_loop(self):
+    def callback_game_loop(self):
+
+        self._goal_generate()
         self._update()
-        run = True
-        while run:
-            # print(f"Best path: {self.best_route}")
-            self.reset()
+        self.reset()
 
-            while self._player != self._goal:
-                self._update()
-                action = self._action_callback(*self._action_callback_args)
-                if action == "QUIT":
-                    run = False
-                    break
-
-            print(f"Steps taken: {self.routes[self._current_route_key]}")
-            self._goal_generate()
+        while self._player != self._goal:
             self._update()
+            action = self._action_callback(*self._action_callback_args)
+            if action == "QUIT":
+                break
+            self._player_erase()
+            self.FUNCMAP[action]()
+            self._update()
+
+            if self.display:
+                try:
+                    if chr(cv2.waitKey(5)) in self.KEYMAP["QUIT"]:
+                        break
+                except ValueError:
+                    pass
+
+        print(f"Steps taken: {self._routes[self._current_route_key]}")
+
+        if self.display:
+            cv2.waitKey(0)
 
 
 state = 500
 
 
-def sample_callback():
-    global state
-    if state > 0:
-        state -= 1
-        return "UP"
-    else:
-        return "QUIT"
-
-
 if __name__ == "__main__":
-    sim = Simulator(512, 512, "sim", sample_callback)
+    collection = Simulator(
+        512,
+        512,
+        "sim",
+        display=False,
+        action_callback=lambda: random.choice(("UP", "DOWN", "LEFT", "RIGHT")),
+    )
+
+    for i in range(100):
+        collection.callback_game_loop()
+
+    print(collection.routes)
