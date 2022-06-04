@@ -115,6 +115,11 @@ class Simulator:
 
         self._goal_generate()
         self._current_route_key = (tuple(self._player), tuple(self._goal))
+        while self._current_route_key in self._routes.keys():
+            self._goal_generate()
+            self._current_route_key = (tuple(self._player), tuple(self._goal))
+
+        self._routes[self._current_route_key]
 
         self._update()
 
@@ -126,10 +131,9 @@ class Simulator:
         self._goal_erase()
         self._goal = self._player
 
+        max_x = (self._width // self.PLAYER_DIM) - 1
+        max_y = (self._height // self.PLAYER_DIM) - 1
         while self._goal == self._player:
-            max_x = (self._width // self.PLAYER_DIM) - 1
-            max_y = (self._height // self.PLAYER_DIM) - 1
-
             self._goal = Pt(
                 random.randint(1, max_x) * self.PLAYER_DIM,
                 random.randint(1, max_y) * self.PLAYER_DIM,
@@ -336,16 +340,3 @@ class Simulator:
 
 if __name__ == "__main__":
     s = Simulator(512, 512)
-
-    # collection = Simulator(
-    #     512,
-    #     512,
-    #     "sim",
-    #     display=False,
-    #     action_callback=lambda: random.choice(("UP", "DOWN", "LEFT", "RIGHT")),
-    # )
-
-    # for i in range(100):
-    #     collection.callback_game_loop()
-
-    # print(collection.routes)
