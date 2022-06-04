@@ -1,3 +1,4 @@
+from pickle import UnpicklingError
 import numpy as np
 import tensorflow as tf
 import cv2
@@ -6,13 +7,15 @@ from sim import Simulator
 from tensorflow import keras
 from tensorflow.keras.layers import Dense
 from tqdm import tqdm
-
-LR = 0.0001
+from pathlib import Path
 
 
 def generate_model(in_dim, out_dim):
+    # Input
     inputs = keras.Input(shape=(in_dim,), name="Inputs")
-    x = Dense(64, activation="relu")(inputs)
+    # Normalization
+    x = tf.keras.layers.LayerNormalization()(inputs)
+    x = Dense(64, activation="relu")(x)
     x = Dense(64, activation="relu")(x)
     outputs = Dense(out_dim, activation="sigmoid", name="predictions")(x)
 
@@ -25,23 +28,42 @@ def generate_model(in_dim, out_dim):
 
 # Designing an input for the neural network ------------------------------------
 #
-# Array with the following components:
-#    (x)            (x)               (x)                         (y)
-# Player Pos  |  Goal Pos  | Route taken to goal |              Score             |
-#   (x, y)    |    (x, y)  |         (UDLR)      |    Diff of best and this route |
+#    (x)            (x)         (y)
+# Player Pos  |  Goal Pos  | Best Route  |
+#   (x, y)    |    (x, y)  |   (UDLR)    |
 
 
 def generate_training_data(num_samples=1000):
+    def gen_callback(*args):
+        return "QUIT"
+
+    x_path = Path("x.npy")
+    y_path = Path("y.npy")
+
+    try:
+        x = np.load(x_path)
+        y = np.load(y_path)
+        x_rows, _ = x.shape
+        y_rows, _ = y.shape
+        if x_rows == y_rows == num_samples + 1:
+            return x, y
+    except (OSError, ValueError, UnpicklingError):
+        pass
+
     s = Simulator(
         512,
         512,
         "sim",
         display=False,
-        action_callback=lambda pp, gp: random.choice(("UP", "DOWN", "LEFT", "RIGHT")),
+        action_callback=gen_callback,
     )
 
     for _ in tqdm(range(num_samples)):
         s.callback_game_loop()
+
+    x, y = s.best_routes_matrix
+    np.save("x.npy", x)
+    np.save("y.npy", y)
 
     return s.best_routes_matrix
 
@@ -70,22 +92,23 @@ def callback_func_factory(model):
 
 
 if __name__ == "__main__":
-    # Get the data
-    x_train, y_train = generate_training_data(10_000)
+    LR = 0.00001
+    BATCH_SIZE = 256
+    EPOCHS = 64
 
-    print(x_train.shape)
-    print(y_train.shape)
+    # Get the data
+    x_train, y_train = generate_training_data(50_000)
 
     # Prep the model
     model = generate_model(x_train.shape[1], y_train.shape[1])
     model.compile(
-        optimizer=keras.optimizers.RMSprop(),
+        optimizer=keras.optimizers.RMSprop(learning_rate=LR),
         loss=keras.losses.MeanSquaredError(),
         metrics=[keras.metrics.MeanSquaredError()],
     )
 
     # Train
-    model.fit(x_train, y_train, epochs=100)
+    model.fit(x_train, y_train, batch_size=BATCH_SIZE, epochs=EPOCHS)
     model.save("model")
 
     # Evaluate
