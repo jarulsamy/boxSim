@@ -6,6 +6,7 @@ from collections import defaultdict
 import cv2
 import numpy as np
 import random
+import time
 
 
 def empty_path():
@@ -43,6 +44,10 @@ class Pt:
     def __repr__(self):
         return f"Pt(x={self.x}, y={self.y})"
 
+    @property
+    def np(self):
+        return np.array([self.x, self.y])
+
 
 class Simulator:
     PLAYER_DIM = 16
@@ -67,13 +72,15 @@ class Simulator:
         width,
         win_name="Simulator",
         display=True,
+        player_start_pos=None,
         action_callback=None,
         *callback_args,
     ):
-        self.height = height
-        self.width = width
-        self.display = display
-        self.win_name = win_name
+        self._height = height
+        self._width = width
+        self._display = display
+        self._player_start_pos = None
+        self._win_name = win_name
 
         self.FUNCMAP = {
             "UP": self.player_up,
@@ -92,18 +99,27 @@ class Simulator:
             self._action_callback_args = callback_args
 
     def reset(self):
-        self.steps = 0
-
+        self._steps = 0
         self._empty_canvas()
 
-        self._player = Pt(self.width // 2, self.height // 2)
+        if self._player_start_pos is None:
+            x = random.randint(0, (self._width // self.PLAYER_DIM) - 1)
+            y = random.randint(0, (self._height // self.PLAYER_DIM) - 1)
+
+            x *= self.PLAYER_DIM
+            y *= self.PLAYER_DIM
+
+            self._player = Pt(x, y)
+        else:
+            self._player = self._player_start_pos
+
         self._goal_generate()
         self._current_route_key = (tuple(self._player), tuple(self._goal))
 
         self._update()
 
     def _empty_canvas(self):
-        self.frame = np.ones((self.height, self.width, 3), np.uint8)
+        self.frame = np.ones((self._height, self._width, 3), np.uint8)
         self.frame[self.frame.all(axis=2)] = self.BACKGROUND_COLOR
 
     def _goal_generate(self):
@@ -111,8 +127,8 @@ class Simulator:
         self._goal = self._player
 
         while self._goal == self._player:
-            max_x = (self.width // self.PLAYER_DIM) - 1
-            max_y = (self.height // self.PLAYER_DIM) - 1
+            max_x = (self._width // self.PLAYER_DIM) - 1
+            max_y = (self._height // self.PLAYER_DIM) - 1
 
             self._goal = Pt(
                 random.randint(1, max_x) * self.PLAYER_DIM,
@@ -152,10 +168,10 @@ class Simulator:
         self._player_draw(color=self.BACKGROUND_COLOR)
 
     def _update(self):
-        if self.display:
+        if self._display:
             self._player_draw()
-            cv2.imshow(self.win_name, self.frame)
-            cv2.namedWindow(self.win_name)
+            cv2.imshow(self._win_name, self.frame)
+            cv2.namedWindow(self._win_name)
 
     @property
     def player_pos(self):
@@ -166,9 +182,17 @@ class Simulator:
         return self._player
 
     @property
-    def best_route(self):
+    def player_goal_distance(self):
+        route = self.best_route
+        return sum(route.values())
+
+    def best_route(self, player=None, goal=None):
         best = empty_path()
-        diff = self._goal - self._player
+
+        if player is None and goal is None:
+            diff = self._goal - self._player
+        else:
+            diff = goal - player
 
         horz = diff.x // self.PLAYER_DIM
         vert = diff.y // self.PLAYER_DIM
@@ -188,28 +212,58 @@ class Simulator:
     def routes(self):
         return dict(self._routes)
 
+    @property
+    def best_routes_matrix(self):
+        x = np.empty((0, 4))
+        y = np.empty((0, 4))
+        for k, v in self.routes.items():
+            x_row = np.zeros((1, 4))
+            y_row = np.zeros((1, 4))
+
+            # Player start position
+            player = Pt(k[0][0], k[0][1])
+            x_row[0, 0] = player.x
+            x_row[0, 1] = player.y
+
+            # Goal start position
+            goal = Pt(k[1][0], k[1][1])
+            x_row[0, 2] = goal.x
+            x_row[0, 3] = goal.y
+            x = np.vstack((x, x_row))
+
+            # Outputs
+            best_route = self.best_route(player, goal)
+            y_row[0, 0] = best_route["UP"]
+            y_row[0, 1] = best_route["DOWN"]
+            y_row[0, 2] = best_route["LEFT"]
+            y_row[0, 3] = best_route["RIGHT"]
+
+            y = np.vstack((y, y_row))
+
+        return x, y
+
     def player_up(self):
         self._routes[self._current_route_key]["UP"] += 1
         new_pos = self._player.y - self.MOVE_INC
-        if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
+        if new_pos + self.PLAYER_DIM <= self._height and new_pos - self.PLAYER_DIM >= 0:
             self._player.y = new_pos
 
     def player_down(self):
         self._routes[self._current_route_key]["DOWN"] += 1
         new_pos = self._player.y + self.MOVE_INC
-        if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
+        if new_pos + self.PLAYER_DIM <= self._height and new_pos - self.PLAYER_DIM >= 0:
             self._player.y = new_pos
 
     def player_left(self):
         self._routes[self._current_route_key]["LEFT"] += 1
         new_pos = self._player.x - self.MOVE_INC
-        if new_pos + self.PLAYER_DIM <= self.width and new_pos - self.PLAYER_DIM >= 0:
+        if new_pos + self.PLAYER_DIM <= self._width and new_pos - self.PLAYER_DIM >= 0:
             self._player.x = new_pos
 
     def player_right(self):
         self._routes[self._current_route_key]["RIGHT"] += 1
         new_pos = self._player.x + self.MOVE_INC
-        if new_pos + self.PLAYER_DIM <= self.height and new_pos - self.PLAYER_DIM >= 0:
+        if new_pos + self.PLAYER_DIM <= self._height and new_pos - self.PLAYER_DIM >= 0:
             self._player.x = new_pos
 
     def _handle_key_press(self, key):
@@ -254,39 +308,44 @@ class Simulator:
 
         while self._player != self._goal:
             self._update()
-            action = self._action_callback(*self._action_callback_args)
+            action = self._action_callback(
+                self._player.np,
+                self._goal.np,
+                *self._action_callback_args,
+            )
             if action == "QUIT":
                 break
             self._player_erase()
             self.FUNCMAP[action]()
             self._update()
 
-            if self.display:
+            if self._display:
+                time.sleep(0.1)
                 try:
                     if chr(cv2.waitKey(5)) in self.KEYMAP["QUIT"]:
                         break
                 except ValueError:
                     pass
 
-        print(f"Steps taken: {self._routes[self._current_route_key]}")
+        if self._display:
+            print(f"Steps taken: {self._routes[self._current_route_key]}")
 
-        if self.display:
+        if self._display:
             cv2.waitKey(0)
 
 
-state = 500
-
-
 if __name__ == "__main__":
-    collection = Simulator(
-        512,
-        512,
-        "sim",
-        display=False,
-        action_callback=lambda: random.choice(("UP", "DOWN", "LEFT", "RIGHT")),
-    )
+    s = Simulator(512, 512)
 
-    for i in range(100):
-        collection.callback_game_loop()
+    # collection = Simulator(
+    #     512,
+    #     512,
+    #     "sim",
+    #     display=False,
+    #     action_callback=lambda: random.choice(("UP", "DOWN", "LEFT", "RIGHT")),
+    # )
 
-    print(collection.routes)
+    # for i in range(100):
+    #     collection.callback_game_loop()
+
+    # print(collection.routes)
