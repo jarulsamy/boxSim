@@ -1,54 +1,76 @@
 #!/usr/bin/env python3
+"""
+Simple simulator for the shortest-path-to-target problem.
+
++------------------------------------------------------------------------------+
+|                                                                              |
+|          □ -------------------------------------                             |
+|          ^(player)                             |                             |
+|                                                |                             |
+|                                                ■                             |
+|                                                ^(target)                     |
+|                                                                              |
++------------------------------------------------------------------------------+
+"""
 
 import random
 import time
 from collections import defaultdict
+from typing import Callable, Optional, Self, Union
 
 import cv2
 import numpy as np
 
 
-def empty_path():
+def empty_path() -> dict[str, int]:
+    """Get an empty path."""
     return {"UP": 0, "DOWN": 0, "LEFT": 0, "RIGHT": 0}
 
 
 class Pt:
-    def __init__(self, x, y):
-        """Helper class to represent a point."""
+    """Represent a point in 2D space."""
+
+    def __init__(self, x: float, y: float):
         self.x = x
         self.y = y
 
     def __iter__(self):
-        """Get the point as a tuple."""
+        """Get the point as an iterable."""
         pt = (self.x, self.y)
         for i in pt:
             yield i
 
-    def __eq__(self, rhs):
+    def __eq__(self, rhs: Self):
         """Check if two points 'point' to the same point."""
         return self.x == rhs.x and self.y == rhs.y
 
-    def __add__(self, rhs):
+    def __add__(self, rhs: Union[Self, float]):
+        """Add two points together."""
         if isinstance(rhs, Pt):
             return Pt(self.x + rhs.x, self.y + rhs.y)
         else:
             return Pt(self.x + rhs, self.y + rhs)
 
     def __sub__(self, rhs):
+        """Subtract two points."""
         if isinstance(rhs, Pt):
             return Pt(self.x - rhs.x, self.y - rhs.y)
         else:
             return Pt(self.x - rhs, self.y - rhs)
 
     def __repr__(self):
+        """Debug output."""
         return f"Pt(x={self.x}, y={self.y})"
 
     @property
     def np(self):
+        """Get Pt as numpy array."""
         return np.array([self.x, self.y])
 
 
 class Simulator:
+    """2D Simulator for shortest-path-to-target problem."""
+
     PLAYER_DIM = 16
     MOVE_INC = PLAYER_DIM
     BACKGROUND_COLOR = (255, 255, 255)
@@ -67,12 +89,12 @@ class Simulator:
 
     def __init__(
         self,
-        height,
-        width,
-        win_name="Simulator",
-        display=True,
-        player_start_pos=None,
-        action_callback=None,
+        height: int,
+        width: int,
+        win_name: Optional[str] = "Simulator",
+        display: Optional[bool] = True,
+        player_start_pos: Optional[Pt] = None,
+        action_callback: Optional[Callable] = None,
         *callback_args,
     ):
         self._height = height
@@ -98,6 +120,7 @@ class Simulator:
             self._action_callback_args = callback_args
 
     def reset(self):
+        """Reset all actions taken by the player."""
         self._steps = 0
         self._empty_canvas()
 
@@ -177,19 +200,23 @@ class Simulator:
             cv2.namedWindow(self._win_name)
 
     @property
-    def player_pos(self):
+    def player_pos(self) -> Pt:
+        """Get the current position of the player."""
         return self._player
 
     @property
-    def goal_pos(self):
-        return self._player
+    def goal_pos(self) -> Pt:
+        """Get the current position of the goal."""
+        return self._goal
 
     @property
-    def player_goal_distance(self):
+    def player_goal_distance(self) -> float:
+        """Get the distance between the player and the goal."""
         route = self.best_route
         return sum(route.values())
 
-    def best_route(self, player=None, goal=None):
+    def best_route(self, player: Optional[Pt] = None, goal: Optional[Pt] = None):
+        """Get the best route from the player to the goal."""
         best = empty_path()
 
         if player is None and goal is None:
@@ -212,11 +239,13 @@ class Simulator:
         return best
 
     @property
-    def routes(self):
+    def routes(self) -> dict:
+        """Get all the routes."""
         return dict(self._routes)
 
     @property
-    def best_routes_matrix(self):
+    def best_routes_matrix(self) -> np.array:
+        """Get the best route as a numpy array."""
         x = np.empty((0, 4))
         y = np.empty((0, 4))
         for k, v in self.routes.items():
@@ -245,25 +274,29 @@ class Simulator:
 
         return x, y
 
-    def player_up(self):
+    def player_up(self) -> None:
+        """Move the player up one cell."""
         self._routes[self._current_route_key]["UP"] += 1
         new_pos = self._player.y - self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self._height and new_pos - self.PLAYER_DIM >= 0:
             self._player.y = new_pos
 
-    def player_down(self):
+    def player_down(self) -> None:
+        """Move the player down one cell."""
         self._routes[self._current_route_key]["DOWN"] += 1
         new_pos = self._player.y + self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self._height and new_pos - self.PLAYER_DIM >= 0:
             self._player.y = new_pos
 
-    def player_left(self):
+    def player_left(self) -> None:
+        """Move the player left one cell."""
         self._routes[self._current_route_key]["LEFT"] += 1
         new_pos = self._player.x - self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self._width and new_pos - self.PLAYER_DIM >= 0:
             self._player.x = new_pos
 
-    def player_right(self):
+    def player_right(self) -> None:
+        """Move the player right one cell."""
         self._routes[self._current_route_key]["RIGHT"] += 1
         new_pos = self._player.x + self.MOVE_INC
         if new_pos + self.PLAYER_DIM <= self._height and new_pos - self.PLAYER_DIM >= 0:
@@ -303,8 +336,8 @@ class Simulator:
             self._goal_generate()
             self._update()
 
-    def callback_game_loop(self):
-
+    def callback_game_loop(self) -> None:
+        """Initiate a game loop by using the action callback to get player movements."""
         self._goal_generate()
         self._update()
         self.reset()
