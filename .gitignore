@@ -1,4 +1,5 @@
-*.vscode
+*.vscode/
 *.npy
 *.pyc
 */__pycache__/
+**/model/
