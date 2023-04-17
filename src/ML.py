@@ -1,22 +1,23 @@
+import random
+from pathlib import Path
 from pickle import UnpicklingError
+
+import cv2
 import numpy as np
 import tensorflow as tf
-import cv2
-import random
-from sim import Simulator
 from tensorflow import keras
 from tensorflow.keras.layers import Dense
 from tqdm import tqdm
-from pathlib import Path
+
+from sim import Simulator
 
 
 def generate_model(in_dim, out_dim):
     # Input
     inputs = keras.Input(shape=(in_dim,), name="Inputs")
     # Normalization
-    x = tf.keras.layers.LayerNormalization()(inputs)
-    x = Dense(64, activation="relu")(x)
-    x = Dense(64, activation="relu")(x)
+    x = tf.keras.layers.Flatten()(inputs)
+    x = Dense(1024, activation="relu")(x)
     outputs = Dense(out_dim, activation="sigmoid", name="predictions")(x)
 
     model = keras.Model(inputs=inputs, outputs=outputs)
@@ -94,10 +95,10 @@ def callback_func_factory(model):
 if __name__ == "__main__":
     LR = 0.00001
     BATCH_SIZE = 256
-    EPOCHS = 64
+    EPOCHS = 256
 
     # Get the data
-    x_train, y_train = generate_training_data(50_000)
+    x_train, y_train = generate_training_data(10_000)
 
     # Prep the model
     model = generate_model(x_train.shape[1], y_train.shape[1])

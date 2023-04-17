@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import random
+import time
 from collections import defaultdict
 
 import cv2
 import numpy as np
-import random
-import time
 
 
 def empty_path():
