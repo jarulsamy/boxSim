@@ -93,18 +93,18 @@ def callback_func_factory(model):
 
 
 if __name__ == "__main__":
-    LR = 0.00001
-    BATCH_SIZE = 256
-    EPOCHS = 256
+    LR = 0.0001
+    BATCH_SIZE = 32
+    EPOCHS = 32
 
     # Get the data
-    x_train, y_train = generate_training_data(10_000)
+    x_train, y_train = generate_training_data(1000)
 
     # Prep the model
     model = generate_model(x_train.shape[1], y_train.shape[1])
     model.compile(
         optimizer=keras.optimizers.RMSprop(learning_rate=LR),
-        loss=keras.losses.MeanSquaredError(),
+        loss=tf.keras.losses.MeanSquaredError(),
         metrics=[keras.metrics.MeanSquaredError()],
     )
 
