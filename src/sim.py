@@ -16,7 +16,7 @@ Simple simulator for the shortest-path-to-target problem.
 import random
 import time
 from collections import defaultdict
-from typing import Callable, Optional, Self, Union
+from typing import Callable, Optional, Union
 
 import cv2
 import numpy as np
@@ -40,11 +40,11 @@ class Pt:
         for i in pt:
             yield i
 
-    def __eq__(self, rhs: Self):
+    def __eq__(self, rhs):
         """Check if two points 'point' to the same point."""
         return self.x == rhs.x and self.y == rhs.y
 
-    def __add__(self, rhs: Union[Self, float]):
+    def __add__(self, rhs: Union[float]):
         """Add two points together."""
         if isinstance(rhs, Pt):
             return Pt(self.x + rhs.x, self.y + rhs.y)
